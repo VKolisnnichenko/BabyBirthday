@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -116,14 +117,14 @@ private fun AppTitleSection(
                 modifier = Modifier.size(32.dp)
             )
             Text(
-                text = "Baby Birthday",
+                text = stringResource(R.string.baby_birthday),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
         }
 
         Text(
-            text = "Create your baby's birthday celebration",
+            text = stringResource(R.string.create_your_baby_birthday_celebration),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -140,7 +141,7 @@ private fun NameInputField(
 ) {
     Column(modifier = modifier) {
         Text(
-            text = "Baby's Name",
+            text = stringResource(R.string.baby_name),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -151,7 +152,7 @@ private fun NameInputField(
             onValueChange = onValueChange,
             placeholder = {
                 Text(
-                    text = "Enter baby's name",
+                    text = stringResource(R.string.enter_baby_name),
                     style = MaterialTheme.typography.bodyLarge
                 )
             },
@@ -177,7 +178,7 @@ private fun BirthdayInputField(
 ) {
     Column(modifier = modifier) {
         Text(
-            text = "Birthday",
+            text = stringResource(R.string.birthday),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -188,7 +189,7 @@ private fun BirthdayInputField(
             onValueChange = onValueChange,
             placeholder = {
                 Text(
-                    text = "Select birthday date",
+                    text = stringResource(R.string.select_birthday_date),
                     style = MaterialTheme.typography.bodyLarge
                 )
             },
@@ -219,7 +220,7 @@ private fun PhotoSection(
 
     Column(modifier = modifier) {
         Text(
-            text = "Baby's Picture",
+            text = stringResource(R.string.baby_picture),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -305,7 +306,7 @@ private fun PhotoSelectedContent() {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Photo selected",
+            text = stringResource(R.string.photo_selected),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
@@ -328,13 +329,13 @@ private fun PhotoPlaceholderContent() {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Tap to add photo",
+            text = stringResource(R.string.tap_to_add_photo),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Text(
-            text = "Camera or Gallery",
+            text = stringResource(R.string.camera_or_gallery),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
@@ -354,7 +355,7 @@ private fun ShowBirthdayButton(
         shape = RoundedCornerShape(12.dp)
     ) {
         Text(
-            text = "Show Birthday Screen",
+            text = stringResource(R.string.show_birthday_screen),
             style = MaterialTheme.typography.labelMedium
         )
     }
@@ -363,7 +364,7 @@ private fun ShowBirthdayButton(
 @Composable
 private fun FormValidationHint() {
     Text(
-        text = "Please enter name and birthday to continue",
+        text = stringResource(R.string.please_enter_name_and_birthday_to_continue),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,

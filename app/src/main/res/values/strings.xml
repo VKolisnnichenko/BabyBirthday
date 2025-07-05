@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">BabyBirthday</string>
+    <string name="birthday">Birthday</string>
+    <string name="enter_baby_name">Enter baby\'s name</string>
+    <string name="baby_name">Baby\'s Name</string>
+    <string name="baby_birthday">Baby Birthday</string>
+    <string name="create_your_baby_birthday_celebration">Create your baby\'s birthday celebration</string>
+    <string name="select_birthday_date">Select birthday date</string>
+    <string name="baby_picture">Baby\'s Picture</string>
+    <string name="photo_selected">Photo selected</string>
+    <string name="tap_to_add_photo">Tap to add photo</string>
+    <string name="camera_or_gallery">Camera or Gallery</string>
+    <string name="show_birthday_screen">Show Birthday Screen</string>
+    <string name="please_enter_name_and_birthday_to_continue">Please enter name and birthday to continue</string>
 </resources>
