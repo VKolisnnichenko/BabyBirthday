@@ -1,15 +1,32 @@
 package com.vkolisnichenko.babybirthday.presentation.screen
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -19,9 +36,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vkolisnichenko.babybirthday.R
+import com.vkolisnichenko.babybirthday.presentation.state.DetailsScreenState
 import com.vkolisnichenko.babybirthday.presentation.theme.BabyBirthdayAppTheme
 import com.vkolisnichenko.babybirthday.presentation.viewmodel.DetailsScreenViewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun DetailsScreen(
@@ -29,17 +50,32 @@ fun DetailsScreen(
     onShowBirthdayScreen: () -> Unit = {},
     viewModel: DetailsScreenViewModel = hiltViewModel()
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var birthday by rememberSaveable { mutableStateOf("") }
-    var hasPhoto by rememberSaveable { mutableStateOf(false) }
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
+    DetailsScreenContent(
+        state = state,
+        onNameChange = viewModel::updateName,
+        onBirthdayChange = viewModel::updateBirthday,
+        onPhotoChange = viewModel::updatePhotoPath,
+        onShowBirthdayScreen = onShowBirthdayScreen,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun DetailsScreenContent(
+    state: DetailsScreenState,
+    onNameChange: (String) -> Unit,
+    onBirthdayChange: (LocalDate) -> Unit,
+    onPhotoChange: (String?) -> Unit,
+    onShowBirthdayScreen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val configuration = LocalConfiguration.current
     val isLandscape =
         configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     val scrollState = rememberScrollState()
-
-    val isFormValid = name.isNotBlank() && birthday.isNotBlank()
 
     Column(
         modifier = modifier
@@ -67,33 +103,42 @@ fun DetailsScreen(
             ) {
 
                 NameInputField(
-                    value = name,
-                    onValueChange = { name = it },
+                    value = state.name,
+                    onValueChange = onNameChange,
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 BirthdayInputField(
-                    value = birthday,
-                    onValueChange = { birthday = it },
+                    birthday = state.birthday,
+                    onBirthdaySelected = onBirthdayChange,
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 PhotoSection(
-                    hasPhoto = hasPhoto,
-                    onPhotoClick = { hasPhoto = !hasPhoto },
+                    hasPhoto = state.hasPhoto,
+                    onPhotoClick = {
+                        val newPath = if (state.hasPhoto) null else "dummy_path"
+                        onPhotoChange(newPath)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 ShowBirthdayButton(
-                    enabled = isFormValid,
+                    enabled = state.isFormValid && !state.isLoading,
+                    isLoading = state.isSaving,
                     onClick = onShowBirthdayScreen,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                if (!isFormValid) {
+                if (!state.isFormValid) {
                     FormValidationHint()
                 }
             }
+        }
+
+        if (state.isLoading) {
+            Spacer(modifier = Modifier.height(16.dp))
+            CircularProgressIndicator()
         }
     }
 }
@@ -172,8 +217,8 @@ private fun NameInputField(
 
 @Composable
 private fun BirthdayInputField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    birthday: LocalDate?,
+    onBirthdaySelected: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -185,8 +230,8 @@ private fun BirthdayInputField(
         )
 
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = birthday?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) ?: "",
+            onValueChange = { },
             placeholder = {
                 Text(
                     text = stringResource(R.string.select_birthday_date),
@@ -345,19 +390,28 @@ private fun PhotoPlaceholderContent() {
 @Composable
 private fun ShowBirthdayButton(
     enabled: Boolean,
+    isLoading: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Button(
         onClick = onClick,
-        enabled = enabled,
+        enabled = enabled && !isLoading,
         modifier = modifier.height(48.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Text(
-            text = stringResource(R.string.show_birthday_screen),
-            style = MaterialTheme.typography.labelMedium
-        )
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.show_birthday_screen),
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
     }
 }
 
@@ -377,17 +431,57 @@ private fun FormValidationHint() {
 fun DetailsScreenPreview() {
     BabyBirthdayAppTheme {
         Surface {
-            DetailsScreen()
+            DetailsScreenContent(
+                state = DetailsScreenState(
+                    name = "Emma",
+                    birthday = LocalDate.of(2023, 6, 15),
+                    photoPath = "mock_path",
+                    isLoading = false,
+                    isSaving = false
+                ),
+                onNameChange = {},
+                onBirthdayChange = {},
+                onPhotoChange = {},
+                onShowBirthdayScreen = {}
+            )
         }
     }
 }
 
-@Preview(showBackground = true, widthDp = 640, heightDp = 360)
+@Preview(showBackground = true, name = "Loading State")
 @Composable
-fun DetailsScreenLandscapePreview() {
+fun DetailsScreenLoadingPreview() {
     BabyBirthdayAppTheme {
         Surface {
-            DetailsScreen()
+            DetailsScreenContent(
+                state = DetailsScreenState(
+                    name = "",
+                    birthday = null,
+                    photoPath = null,
+                    isLoading = true,
+                    isSaving = false
+                ),
+                onNameChange = {},
+                onBirthdayChange = {},
+                onPhotoChange = {},
+                onShowBirthdayScreen = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Empty State")
+@Composable
+fun DetailsScreenEmptyPreview() {
+    BabyBirthdayAppTheme {
+        Surface {
+            DetailsScreenContent(
+                state = DetailsScreenState(),
+                onNameChange = {},
+                onBirthdayChange = {},
+                onPhotoChange = {},
+                onShowBirthdayScreen = {}
+            )
         }
     }
 }
