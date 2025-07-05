@@ -1,5 +1,7 @@
 package com.vkolisnichenko.babybirthday.presentation.screen
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,17 +29,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vkolisnichenko.babybirthday.R
+import com.vkolisnichenko.babybirthday.presentation.components.DatePickerDialog
 import com.vkolisnichenko.babybirthday.presentation.state.DetailsScreenState
 import com.vkolisnichenko.babybirthday.presentation.theme.BabyBirthdayAppTheme
 import com.vkolisnichenko.babybirthday.presentation.viewmodel.DetailsScreenViewModel
@@ -198,7 +205,8 @@ private fun NameInputField(
             placeholder = {
                 Text(
                     text = stringResource(R.string.enter_baby_name),
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 2
                 )
             },
             leadingIcon = {
@@ -208,9 +216,10 @@ private fun NameInputField(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
-            singleLine = true,
+            maxLines = 2,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            textStyle = MaterialTheme.typography.bodyLarge
         )
     }
 }
@@ -221,6 +230,8 @@ private fun BirthdayInputField(
     onBirthdaySelected: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showDatePicker by remember { mutableStateOf(false) }
+
     Column(modifier = modifier) {
         Text(
             text = stringResource(R.string.birthday),
@@ -229,26 +240,48 @@ private fun BirthdayInputField(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        OutlinedTextField(
-            value = birthday?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) ?: "",
-            onValueChange = { },
-            placeholder = {
-                Text(
-                    text = stringResource(R.string.select_birthday_date),
-                    style = MaterialTheme.typography.bodyLarge
-                )
+        Box {
+            OutlinedTextField(
+                value = birthday?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) ?: "",
+                onValueChange = { },
+                placeholder = {
+                    Text(
+                        text = stringResource(R.string.select_birthday_date),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Calendar icon",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                readOnly = true,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) { showDatePicker = true }
+            )
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDateSelected = { selectedDate ->
+                onBirthdaySelected(selectedDate)
+                showDatePicker = false
             },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = "Calendar icon",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            readOnly = true,
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            onDismiss = { showDatePicker = false },
+            initialDate = birthday
         )
     }
 }

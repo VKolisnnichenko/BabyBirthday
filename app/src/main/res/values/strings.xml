@@ -12,4 +12,6 @@
     <string name="camera_or_gallery">Camera or Gallery</string>
     <string name="show_birthday_screen">Show Birthday Screen</string>
     <string name="please_enter_name_and_birthday_to_continue">Please enter name and birthday to continue</string>
+    <string name="cancel">cancel</string>
+    <string name="ok">ok</string>
 </resources>
