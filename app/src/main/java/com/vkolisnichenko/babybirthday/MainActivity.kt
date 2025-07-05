@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.vkolisnichenko.babybirthday.presentation.screen.DetailsScreen
+import com.vkolisnichenko.babybirthday.presentation.navigation.Navigation
 import com.vkolisnichenko.babybirthday.presentation.theme.BabyBirthdayAppTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        DetailsScreen()
+                        Navigation()
                     }
                 }
             }
