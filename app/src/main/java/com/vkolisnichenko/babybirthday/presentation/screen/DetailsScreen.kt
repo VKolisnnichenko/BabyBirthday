@@ -38,7 +38,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -116,9 +115,10 @@ private fun DetailsScreenContent(
                 )
 
                 BirthdayInputField(
+                    modifier = Modifier.fillMaxWidth(),
                     birthday = state.birthday,
-                    onBirthdaySelected = onBirthdayChange,
-                    modifier = Modifier.fillMaxWidth()
+                    birthdayErrorMessage = state.birthdayErrorMessage ?: "",
+                    onBirthdaySelected = onBirthdayChange
                 )
 
                 PhotoSection(
@@ -201,7 +201,12 @@ private fun NameInputField(
 
         OutlinedTextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { newValue ->
+                val filteredValue = newValue.filter { char ->
+                    char.isLetter() || char.isWhitespace()
+                }
+                onValueChange(filteredValue)
+            },
             placeholder = {
                 Text(
                     text = stringResource(R.string.enter_baby_name),
@@ -226,9 +231,10 @@ private fun NameInputField(
 
 @Composable
 private fun BirthdayInputField(
+    modifier: Modifier = Modifier,
     birthday: LocalDate?,
-    onBirthdaySelected: (LocalDate) -> Unit,
-    modifier: Modifier = Modifier
+    birthdayErrorMessage: String = "",
+    onBirthdaySelected: (LocalDate) -> Unit
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -270,6 +276,14 @@ private fun BirthdayInputField(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() }
                     ) { showDatePicker = true }
+            )
+        }
+        birthdayErrorMessage.takeIf { it.isNotBlank() }.apply {
+            Text(
+                text = this ?: "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
             )
         }
     }

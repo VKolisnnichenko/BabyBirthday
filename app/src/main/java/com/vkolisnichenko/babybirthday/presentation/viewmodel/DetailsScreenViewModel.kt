@@ -57,8 +57,11 @@ class DetailsScreenViewModel @Inject constructor(
                 }
         }
     }
+
     fun updateName(name: String) {
-        _state.value = _state.value.copy(name = name)
+        val limitedName = if (name.length > MAX_NAME_LENGTH) name.take(MAX_NAME_LENGTH) else name
+
+        _state.value = _state.value.copy(name = limitedName)
         saveBabyInfoIfValid()
     }
 
@@ -87,7 +90,7 @@ class DetailsScreenViewModel @Inject constructor(
                 val currentState = _state.value
                 val babyInfo = BabyInfo(
                     name = currentState.name,
-                    birthday = currentState.birthday!!,
+                    birthday = currentState.birthday ?: LocalDate.now(),
                     photoPath = currentState.photoPath
                 )
 
@@ -104,5 +107,9 @@ class DetailsScreenViewModel @Inject constructor(
 
     fun clearError() {
         _state.value = _state.value.copy(errorMessage = null)
+    }
+
+    companion object {
+        const val MAX_NAME_LENGTH = 100
     }
 }
