@@ -28,4 +28,9 @@
     <string name="select_image_source">Select Image Source</string>
     <string name="choose_how_you_want_to_add_a_photo">Choose how you want to add a photo</string>
     <string name="camera">Camera</string>
+    <string name="share_the_news">Share the news</string>
+    <string name="baby_photo">Baby photo</string>
+    <string name="age">Age %1$s</string>
+    <string name="baby">Baby %1$s</string>
+    <string name="camera_name">Camera %1$s</string>
 </resources>

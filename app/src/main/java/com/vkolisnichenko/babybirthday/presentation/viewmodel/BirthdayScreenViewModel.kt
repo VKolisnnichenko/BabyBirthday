@@ -1,19 +1,26 @@
 package com.vkolisnichenko.babybirthday.presentation.viewmodel
 
+import android.content.Intent
 import android.net.Uri
+import android.view.View
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vkolisnichenko.babybirthday.domain.model.BirthdayScreenVariant
 import com.vkolisnichenko.babybirthday.domain.model.ImageSource
 import com.vkolisnichenko.babybirthday.domain.usecase.CalculateAgeUseCase
+import com.vkolisnichenko.babybirthday.domain.usecase.CaptureScreenshotUseCase
+import com.vkolisnichenko.babybirthday.domain.usecase.CreateShareIntentUseCase
 import com.vkolisnichenko.babybirthday.domain.usecase.GetBabyInfoUseCase
 import com.vkolisnichenko.babybirthday.domain.usecase.PrepareCameraUseCase
 import com.vkolisnichenko.babybirthday.domain.usecase.SaveBabyInfoUseCase
+import com.vkolisnichenko.babybirthday.domain.usecase.SaveScreenshotUseCase
 import com.vkolisnichenko.babybirthday.domain.usecase.SelectImageUseCase
 import com.vkolisnichenko.babybirthday.domain.usecase.ValidateImageUseCase
 import com.vkolisnichenko.babybirthday.presentation.state.BirthdayScreenState
 import com.vkolisnichenko.babybirthday.presentation.state.ImagePickerState
+import com.vkolisnichenko.babybirthday.presentation.state.ShareState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +36,10 @@ class BirthdayScreenViewModel @Inject constructor(
     private val calculateAgeUseCase: CalculateAgeUseCase,
     private val selectImageUseCase: SelectImageUseCase,
     private val validateImageUseCase: ValidateImageUseCase,
-    private val prepareCameraUseCase: PrepareCameraUseCase
+    private val prepareCameraUseCase: PrepareCameraUseCase,
+    private val captureScreenshotUseCase: CaptureScreenshotUseCase,
+    private val saveScreenshotUseCase: SaveScreenshotUseCase,
+    private val createShareIntentUseCase: CreateShareIntentUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BirthdayScreenState())
@@ -37,6 +47,9 @@ class BirthdayScreenViewModel @Inject constructor(
 
     private val _imagePickerState = MutableStateFlow(ImagePickerState())
     val imagePickerState: StateFlow<ImagePickerState> = _imagePickerState.asStateFlow()
+
+    private val _shareState = MutableStateFlow(ShareState())
+    val shareState: StateFlow<ShareState> = _shareState.asStateFlow()
 
     init {
         selectRandomUiVariant()
@@ -116,6 +129,55 @@ class BirthdayScreenViewModel @Inject constructor(
 
     fun clearImagePickerError() {
         _imagePickerState.value = _imagePickerState.value.copy(errorMessage = null)
+    }
+
+    fun onShareClick(view: View): Intent? {
+        viewModelScope.launch {
+            _shareState.value = _shareState.value.copy(
+                isSharing = true,
+                hideUIForScreenshot = true,
+                errorMessage = null
+            )
+
+            delay(100)
+
+            val screenshotResult = captureScreenshotUseCase(view)
+
+            when (screenshotResult) {
+                is CaptureScreenshotUseCase.Result.Success -> {
+                    val saveResult = saveScreenshotUseCase(screenshotResult.bitmap)
+
+                    when (saveResult) {
+                        is SaveScreenshotUseCase.Result.Success -> {
+                            _shareState.value = _shareState.value.copy(
+                                isSharing = false,
+                                hideUIForScreenshot = false
+                            )
+                        }
+                        is SaveScreenshotUseCase.Result.Error -> {
+                            _shareState.value = _shareState.value.copy(
+                                isSharing = false,
+                                hideUIForScreenshot = false,
+                                errorMessage = saveResult.message
+                            )
+                        }
+                    }
+                }
+                is CaptureScreenshotUseCase.Result.Error -> {
+                    _shareState.value = _shareState.value.copy(
+                        isSharing = false,
+                        hideUIForScreenshot = false,
+                        errorMessage = screenshotResult.message
+                    )
+                }
+            }
+        }
+
+        return null
+    }
+
+    fun clearShareError() {
+        _shareState.value = _shareState.value.copy(errorMessage = null)
     }
 
     private fun updatePhotoPath(photoPath: String) {

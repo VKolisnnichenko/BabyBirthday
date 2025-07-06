@@ -3,6 +3,7 @@ package com.vkolisnichenko.babybirthday.presentation.screen
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,11 +31,13 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +76,7 @@ import com.vkolisnichenko.babybirthday.presentation.mapper.getAgeImageResource
 import com.vkolisnichenko.babybirthday.presentation.mapper.getBabyImageResource
 import com.vkolisnichenko.babybirthday.presentation.mapper.getPhotoImageResource
 import com.vkolisnichenko.babybirthday.presentation.state.BirthdayScreenState
+import com.vkolisnichenko.babybirthday.presentation.state.ShareState
 import com.vkolisnichenko.babybirthday.presentation.theme.BabyBirthdayAppTheme
 import com.vkolisnichenko.babybirthday.presentation.theme.BlueGray
 import com.vkolisnichenko.babybirthday.presentation.theme.getConfig
@@ -87,6 +92,7 @@ fun BirthdayScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val imagePickerState by viewModel.imagePickerState.collectAsStateWithLifecycle()
+    val shareState by viewModel.shareState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     BackHandler {
@@ -123,8 +129,11 @@ fun BirthdayScreen(
 
     BirthdayScreenContent(
         state = state,
+        shareState = shareState,
         onCloseClick = onCloseClick,
         onCameraClick = { showImageSourceDialog = true },
+        onShareClick = { view ->
+        },
         modifier = modifier,
         isProcessing = imagePickerState.isProcessingImage
     )
@@ -173,8 +182,10 @@ fun BirthdayScreen(
 @Composable
 private fun BirthdayScreenContent(
     state: BirthdayScreenState,
+    shareState: ShareState,
     onCloseClick: () -> Unit,
     onCameraClick: () -> Unit,
+    onShareClick: (View) -> Unit,
     modifier: Modifier = Modifier,
     isProcessing: Boolean = false
 ) {
@@ -198,13 +209,24 @@ private fun BirthdayScreenContent(
             )
         }
 
-        CloseButton(
-            onClick = onCloseClick,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-                .zIndex(10f)
-        )
+        if (!shareState.hideUIForScreenshot) {
+            CloseButton(
+                onClick = onCloseClick,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+                    .zIndex(10f)
+            )
+
+            ShareButton(
+                onClick = onShareClick,
+                isLoading = shareState.isSharing,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .zIndex(10f)
+            )
+        }
 
         BirthdayScreenLayout(
             babyName = state.babyName,
@@ -262,7 +284,8 @@ private fun BirthdayScreenPortraitLayout(
     variant: BirthdayScreenVariant,
     onCameraClick: () -> Unit,
     statusBarHeight: Dp,
-    isProcessing: Boolean
+    isProcessing: Boolean,
+    hideUIForScreenshot: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -291,7 +314,8 @@ private fun BirthdayScreenPortraitLayout(
             photoPath = photoPath,
             variant = variant,
             onCameraClick = onCameraClick,
-            isProcessing = isProcessing
+            isProcessing = isProcessing,
+            hideUIForScreenshot = hideUIForScreenshot
         )
 
         NanitLogo(
@@ -356,6 +380,48 @@ private fun BirthdayScreenLandscapeLayout(
     }
 }
 
+@Composable
+private fun ShareButton(
+    onClick: (View) -> Unit,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val view = LocalView.current
+
+    Card(
+        onClick = {
+            if (!isLoading) {
+                onClick(view)
+            }
+        },
+        modifier = modifier.size(48.dp),
+        shape = CircleShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = stringResource(R.string.share_the_news),
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun AgeNumberSection(
@@ -372,7 +438,7 @@ private fun AgeNumberSection(
 
         Image(
             painter = painterResource(id = getAgeImageResource(ageInfo.value)),
-            contentDescription = "Age ${ageInfo.value}",
+            contentDescription = stringResource(R.string.age, ageInfo.value),
             modifier = Modifier
                 .height(120.dp)
                 .wrapContentWidth(),
@@ -461,7 +527,8 @@ private fun BabyImageWithCamera(
     photoPath: String,
     variant: BirthdayScreenVariant,
     isProcessing: Boolean,
-    onCameraClick: () -> Unit
+    onCameraClick: () -> Unit,
+    hideUIForScreenshot: Boolean = false
 ) {
     BoxWithConstraints(
         modifier = Modifier
@@ -478,12 +545,14 @@ private fun BabyImageWithCamera(
             onCameraClick = onCameraClick
         )
 
-        CameraIconOnBorder(
-            onCameraClick = onCameraClick,
-            containerSize = this.maxWidth,
-            variant = variant,
-            isEnabled = !isProcessing
-        )
+        if (!hideUIForScreenshot) {
+            CameraIconOnBorder(
+                onCameraClick = onCameraClick,
+                containerSize = this.maxWidth,
+                variant = variant,
+                isEnabled = !isProcessing
+            )
+        }
 
         if (isProcessing) {
             Box(
@@ -510,7 +579,7 @@ private fun BabyImageCircle(
 ) {
     Image(
         painter = painterResource(getBabyImageResource(variant)),
-        contentDescription = "Baby ${variant.name.lowercase()}",
+        contentDescription = stringResource(R.string.baby, variant.name.lowercase()),
         modifier = Modifier
             .fillMaxSize()
             .clickable(
@@ -525,7 +594,7 @@ private fun BabyImageCircle(
         AsyncImageLoader(
             imagePath = photoPath,
             fallbackPainter = painterResource(getBabyImageResource(variant)),
-            contentDescription = "Baby photo",
+            contentDescription = stringResource(R.string.baby_photo),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(6.dp)
@@ -562,7 +631,7 @@ private fun CameraIconOnBorder(
     ) {
         Image(
             painter = painterResource(getPhotoImageResource(variant)),
-            contentDescription = "Camera ${variant.name.lowercase()}",
+            contentDescription = stringResource(R.string.camera_name, variant.name.lowercase()),
             modifier = Modifier
                 .fillMaxSize()
                 .clickable(
@@ -628,8 +697,10 @@ fun BirthdayScreenFoxPreview() {
                 variant = BirthdayScreenVariant.FOX,
                 photoPath = "sample_path"
             ),
+            shareState = ShareState(),
             onCloseClick = {},
-            onCameraClick = {}
+            onCameraClick = {},
+            onShareClick = {}
         )
     }
 }
@@ -645,8 +716,10 @@ fun BirthdayScreenElephantLongNamePreview() {
                 variant = BirthdayScreenVariant.ELEPHANT,
                 photoPath = ""
             ),
+            shareState = ShareState(),
             onCloseClick = {},
-            onCameraClick = {}
+            onCameraClick = {},
+            onShareClick = {}
         )
     }
 }
@@ -662,8 +735,10 @@ fun BirthdayScreenPelicanYearsPreview() {
                 variant = BirthdayScreenVariant.PELICAN,
                 photoPath = ""
             ),
+            shareState = ShareState(),
             onCloseClick = {},
-            onCameraClick = {}
+            onCameraClick = {},
+            onShareClick = {}
         )
     }
 }
@@ -679,8 +754,48 @@ fun BirthdayScreenVeryLongNamePreview() {
                 variant = BirthdayScreenVariant.FOX,
                 photoPath = ""
             ),
+            shareState = ShareState(),
             onCloseClick = {},
-            onCameraClick = {}
+            onCameraClick = {},
+            onShareClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Share Loading State")
+@Composable
+fun BirthdayScreenShareLoadingPreview() {
+    BabyBirthdayAppTheme {
+        BirthdayScreenContent(
+            state = BirthdayScreenState(
+                babyName = "Emma",
+                ageInfo = AgeInfo(value = 8, isYears = false),
+                variant = BirthdayScreenVariant.FOX,
+                photoPath = "sample_path"
+            ),
+            shareState = ShareState(isSharing = true),
+            onCloseClick = {},
+            onCameraClick = {},
+            onShareClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Screenshot Mode (Hidden UI)")
+@Composable
+fun BirthdayScreenScreenshotPreview() {
+    BabyBirthdayAppTheme {
+        BirthdayScreenContent(
+            state = BirthdayScreenState(
+                babyName = "Emma",
+                ageInfo = AgeInfo(value = 8, isYears = false),
+                variant = BirthdayScreenVariant.FOX,
+                photoPath = "sample_path"
+            ),
+            shareState = ShareState(hideUIForScreenshot = true),
+            onCloseClick = {},
+            onCameraClick = {},
+            onShareClick = {}
         )
     }
 }
