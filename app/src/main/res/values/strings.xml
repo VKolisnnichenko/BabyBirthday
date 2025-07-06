@@ -14,4 +14,13 @@
     <string name="please_enter_name_and_birthday_to_continue">Please enter name and birthday to continue</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
+    <string name="close">Close</string>
+    <string name="year_old">YEAR OLD!</string>
+    <string name="years_old">YEARS OLD!</string>
+    <string name="month_old">MONTH OLD!</string>
+    <string name="months_old">MONTHS OLD!</string>
+    <string name="left_decorative_swirls">Left decorative swirls</string>
+    <string name="right_decorative_swirls">Right decorative swirls</string>
+    <string name="today_is">TODAY %1$s IS</string>
+    <string name="nanit_logo">Nanit logo</string>
 </resources>

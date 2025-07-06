@@ -29,3 +29,5 @@ val GrayDark200 = Color(0xFF3F3F46)
 val FoxBackground = Color(0xFFC5E8DF)
 val ElephantBackground = Color(0xFFFEEFCB)
 val PelicanBackground = Color(0xFFDAF1F6)
+
+val BlueGray = Color(0xFF394562)
