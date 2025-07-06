@@ -146,7 +146,7 @@ fun DetailsScreen(
                         }
                     }
                 ) {
-                    Text("Camera")
+                    Text(stringResource(R.string.camera))
                 }
             }
         )

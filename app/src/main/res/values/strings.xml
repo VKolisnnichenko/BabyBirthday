@@ -27,4 +27,5 @@
     <string name="gallery">Gallery</string>
     <string name="select_image_source">Select Image Source</string>
     <string name="choose_how_you_want_to_add_a_photo">Choose how you want to add a photo</string>
+    <string name="camera">Camera</string>
 </resources>

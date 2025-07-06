@@ -1,10 +1,15 @@
 package com.vkolisnichenko.babybirthday.presentation.screen
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,17 +30,24 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -47,11 +59,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vkolisnichenko.babybirthday.R
 import com.vkolisnichenko.babybirthday.domain.model.AgeInfo
 import com.vkolisnichenko.babybirthday.domain.model.BirthdayScreenVariant
+import com.vkolisnichenko.babybirthday.domain.model.ImageSource
+import com.vkolisnichenko.babybirthday.domain.usecase.PrepareCameraUseCase
+import com.vkolisnichenko.babybirthday.presentation.components.AsyncImageLoader
 import com.vkolisnichenko.babybirthday.presentation.mapper.getAgeImageResource
 import com.vkolisnichenko.babybirthday.presentation.mapper.getBabyImageResource
 import com.vkolisnichenko.babybirthday.presentation.mapper.getPhotoImageResource
@@ -67,21 +83,91 @@ import kotlin.math.sin
 fun BirthdayScreen(
     modifier: Modifier = Modifier,
     onCloseClick: () -> Unit = {},
-    onCameraClick: () -> Unit = {},
     viewModel: BirthdayScreenViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val imagePickerState by viewModel.imagePickerState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     BackHandler {
         onCloseClick()
     }
 
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.onImageSelected(it, ImageSource.GALLERY) }
+    }
+
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    var cameraSetup by remember { mutableStateOf<PrepareCameraUseCase.CameraSetup?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        cameraSetup?.let { setup ->
+            viewModel.onCameraImageCaptured(success, setup.tempFile)
+            cameraSetup = null
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val setup = viewModel.prepareCameraCapture()
+            cameraSetup = setup
+            cameraLauncher.launch(setup.uri)
+        }
+    }
+
     BirthdayScreenContent(
         state = state,
         onCloseClick = onCloseClick,
-        onCameraClick = onCameraClick,
-        modifier = modifier
+        onCameraClick = { showImageSourceDialog = true },
+        modifier = modifier,
+        isProcessing = imagePickerState.isProcessingImage
     )
+
+    if (showImageSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showImageSourceDialog = false },
+            title = { Text(stringResource(R.string.select_image_source)) },
+            text = { Text(stringResource(R.string.choose_how_you_want_to_add_a_photo)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showImageSourceDialog = false
+                        galleryLauncher.launch("image/*")
+                    }
+                ) {
+                    Text(stringResource(R.string.gallery))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showImageSourceDialog = false
+
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (hasPermission) {
+                            val setup = viewModel.prepareCameraCapture()
+                            cameraSetup = setup
+                            cameraLauncher.launch(setup.uri)
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.camera))
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -89,7 +175,8 @@ private fun BirthdayScreenContent(
     state: BirthdayScreenState,
     onCloseClick: () -> Unit,
     onCameraClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isProcessing: Boolean = false
 ) {
     val config = state.variant.getConfig()
     val density = LocalDensity.current
@@ -125,7 +212,8 @@ private fun BirthdayScreenContent(
             photoPath = state.photoPath,
             variant = state.variant,
             onCameraClick = onCameraClick,
-            statusBarHeight = statusBarHeight
+            statusBarHeight = statusBarHeight,
+            isProcessing = isProcessing
         )
     }
 }
@@ -138,7 +226,8 @@ private fun BirthdayScreenLayout(
     photoPath: String,
     variant: BirthdayScreenVariant,
     onCameraClick: () -> Unit,
-    statusBarHeight: Dp
+    statusBarHeight: Dp,
+    isProcessing: Boolean
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -149,7 +238,8 @@ private fun BirthdayScreenLayout(
             ageInfo = ageInfo,
             photoPath = photoPath,
             variant = variant,
-            onCameraClick = onCameraClick
+            onCameraClick = onCameraClick,
+            isProcessing = isProcessing
         )
     } else {
         BirthdayScreenPortraitLayout(
@@ -158,7 +248,8 @@ private fun BirthdayScreenLayout(
             photoPath = photoPath,
             variant = variant,
             onCameraClick = onCameraClick,
-            statusBarHeight = statusBarHeight
+            statusBarHeight = statusBarHeight,
+            isProcessing = isProcessing
         )
     }
 }
@@ -170,7 +261,8 @@ private fun BirthdayScreenPortraitLayout(
     photoPath: String,
     variant: BirthdayScreenVariant,
     onCameraClick: () -> Unit,
-    statusBarHeight: Dp
+    statusBarHeight: Dp,
+    isProcessing: Boolean
 ) {
     Column(
         modifier = Modifier
@@ -198,7 +290,8 @@ private fun BirthdayScreenPortraitLayout(
         BabyImageWithCamera(
             photoPath = photoPath,
             variant = variant,
-            onCameraClick = onCameraClick
+            onCameraClick = onCameraClick,
+            isProcessing = isProcessing
         )
 
         NanitLogo(
@@ -214,6 +307,7 @@ private fun BirthdayScreenLandscapeLayout(
     photoPath: String,
     variant: BirthdayScreenVariant,
     onCameraClick: () -> Unit,
+    isProcessing: Boolean
 ) {
     Row(
         modifier = Modifier
@@ -230,7 +324,8 @@ private fun BirthdayScreenLandscapeLayout(
             BabyImageWithCamera(
                 photoPath = photoPath,
                 variant = variant,
-                onCameraClick = onCameraClick
+                onCameraClick = onCameraClick,
+                isProcessing = isProcessing
             )
         }
 
@@ -365,6 +460,7 @@ private fun NameDisplayText(
 private fun BabyImageWithCamera(
     photoPath: String,
     variant: BirthdayScreenVariant,
+    isProcessing: Boolean,
     onCameraClick: () -> Unit
 ) {
     BoxWithConstraints(
@@ -377,36 +473,69 @@ private fun BabyImageWithCamera(
 
         BabyImageCircle(
             photoPath = photoPath,
-            variant = variant
+            variant = variant,
+            isProcessing = isProcessing,
+            onCameraClick = onCameraClick
         )
+
         CameraIconOnBorder(
             onCameraClick = onCameraClick,
             containerSize = this.maxWidth,
-            variant = variant
+            variant = variant,
+            isEnabled = !isProcessing
         )
 
+        if (isProcessing) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun BabyImageCircle(
     photoPath: String,
-    variant: BirthdayScreenVariant
+    variant: BirthdayScreenVariant,
+    isProcessing: Boolean,
+    onCameraClick: () -> Unit
 ) {
+    Image(
+        painter = painterResource(getBabyImageResource(variant)),
+        contentDescription = "Baby ${variant.name.lowercase()}",
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                enabled = !isProcessing,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) { onCameraClick() },
+        contentScale = ContentScale.Fit
+    )
+
     if (photoPath.isNotEmpty()) {
-        // TODO: Load actual user photo in Step 4
-        Image(
-            painter = painterResource(getBabyImageResource(variant)),
+        AsyncImageLoader(
+            imagePath = photoPath,
+            fallbackPainter = painterResource(getBabyImageResource(variant)),
             contentDescription = "Baby photo",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-    } else {
-        Image(
-            painter = painterResource(getBabyImageResource(variant)),
-            contentDescription = "Baby ${variant.name.lowercase()}",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Fit
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(6.dp)
+                .clickable(
+                    enabled = !isProcessing,
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { onCameraClick() },
+            contentScale = ContentScale.Crop,
+            isCircular = true
         )
     }
 }
@@ -415,7 +544,8 @@ private fun BabyImageCircle(
 private fun CameraIconOnBorder(
     onCameraClick: () -> Unit,
     containerSize: Dp,
-    variant: BirthdayScreenVariant
+    variant: BirthdayScreenVariant,
+    isEnabled: Boolean = true
 ) {
     val radius = containerSize / 2
     val cameraIconSize = 36.dp
@@ -435,7 +565,11 @@ private fun CameraIconOnBorder(
             contentDescription = "Camera ${variant.name.lowercase()}",
             modifier = Modifier
                 .fillMaxSize()
-                .clickable { onCameraClick() },
+                .clickable(
+                    enabled = isEnabled,
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { onCameraClick() },
             contentScale = ContentScale.Fit
         )
     }

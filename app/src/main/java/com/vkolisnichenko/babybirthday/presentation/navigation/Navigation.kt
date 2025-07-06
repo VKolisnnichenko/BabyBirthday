@@ -71,9 +71,6 @@ fun Navigation(
             BirthdayScreen(
                 onCloseClick = {
                     navController.popBackStackOrIgnore()
-                },
-                onCameraClick = {
-                    // TODO: Implement camera functionality in Step 4
                 }
             )
         }
