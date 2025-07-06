@@ -23,4 +23,8 @@
     <string name="right_decorative_swirls">Right decorative swirls</string>
     <string name="today_is">TODAY %1$s IS</string>
     <string name="nanit_logo">Nanit logo</string>
+    <string name="processing_image">Processing image...</string>
+    <string name="gallery">Gallery</string>
+    <string name="select_image_source">Select Image Source</string>
+    <string name="choose_how_you_want_to_add_a_photo">Choose how you want to add a photo</string>
 </resources>

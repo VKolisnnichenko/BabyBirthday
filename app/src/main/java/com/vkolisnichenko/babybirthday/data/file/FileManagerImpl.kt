@@ -48,7 +48,7 @@ class FileManagerImpl @Inject constructor(
 
     override fun createTempCameraFile(): File {
         val fileName = "temp_camera_${System.currentTimeMillis()}$IMAGE_EXTENSION"
-        return File(context.externalCacheDir, fileName)
+        return File(context.cacheDir, fileName)
     }
 
     override fun getFileProviderUri(file: File): Uri {

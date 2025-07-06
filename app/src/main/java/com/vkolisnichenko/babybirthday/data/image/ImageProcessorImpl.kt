@@ -84,11 +84,21 @@ class ImageProcessorImpl @Inject constructor(
 
     override suspend fun isImageSizeAcceptable(uri: Uri): Boolean = withContext(Dispatchers.IO) {
         try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val sizeBytes = inputStream.available()
-                val sizeMB = sizeBytes / BYTES_IN_MB.toFloat()
-                sizeMB <= MAX_FILE_SIZE_MB * 2
-            } ?: false
+            val fileSize = when (uri.scheme) {
+                "file" -> {
+                    val file = File(uri.path ?: return@withContext false)
+                    file.length()
+                }
+                "content" -> {
+                    context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                        pfd.statSize
+                    } ?: return@withContext false
+                }
+                else -> return@withContext false
+            }
+
+            val sizeMB = fileSize / BYTES_IN_MB.toFloat()
+            sizeMB <= MAX_FILE_SIZE_MB * 2
         } catch (e: Exception) {
             false
         }

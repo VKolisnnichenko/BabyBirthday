@@ -1,5 +1,9 @@
 package com.vkolisnichenko.babybirthday.presentation.screen
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,17 +40,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vkolisnichenko.babybirthday.R
+import com.vkolisnichenko.babybirthday.domain.usecase.PrepareCameraUseCase
+import com.vkolisnichenko.babybirthday.presentation.components.AsyncImageLoader
 import com.vkolisnichenko.babybirthday.presentation.components.DatePickerDialog
 import com.vkolisnichenko.babybirthday.presentation.state.DetailsScreenState
+import com.vkolisnichenko.babybirthday.presentation.state.ImagePickerState
 import com.vkolisnichenko.babybirthday.presentation.theme.BabyBirthdayAppTheme
 import com.vkolisnichenko.babybirthday.presentation.viewmodel.DetailsScreenViewModel
 import java.time.LocalDate
@@ -57,24 +69,99 @@ fun DetailsScreen(
     viewModel: DetailsScreenViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val imagePickerState by viewModel.imagePickerState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.onImageSelected(it) }
+    }
+
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    var cameraSetup by remember { mutableStateOf<PrepareCameraUseCase.CameraSetup?>(null) }
+
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        cameraSetup?.let { setup ->
+            viewModel.onCameraImageCaptured(success, setup.tempFile)
+            cameraSetup = null
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val setup = viewModel.prepareCameraCapture()
+            cameraSetup = setup
+            cameraLauncher.launch(setup.uri)
+        }
+    }
 
     DetailsScreenContent(
         state = state,
+        imagePickerState = imagePickerState,
         onNameChange = viewModel::updateName,
         onBirthdayChange = viewModel::updateBirthday,
-        onPhotoChange = viewModel::updatePhotoPath,
+        onPhotoClick = { showImageSourceDialog = true },
         onShowBirthdayScreen = onShowBirthdayScreen,
+        onClearError = viewModel::clearImagePickerError,
         modifier = modifier
     )
+
+    if (showImageSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showImageSourceDialog = false },
+            title = { Text(stringResource(R.string.select_image_source)) },
+            text = { Text(stringResource(R.string.choose_how_you_want_to_add_a_photo)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showImageSourceDialog = false
+                        galleryLauncher.launch("image/*")
+                    }
+                ) {
+                    Text(stringResource(R.string.gallery))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showImageSourceDialog = false
+
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (hasPermission) {
+                            val setup = viewModel.prepareCameraCapture()
+                            cameraSetup = setup
+                            cameraLauncher.launch(setup.uri)
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    }
+                ) {
+                    Text("Camera")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun DetailsScreenContent(
     state: DetailsScreenState,
+    imagePickerState: ImagePickerState,
     onNameChange: (String) -> Unit,
     onBirthdayChange: (LocalDate) -> Unit,
-    onPhotoChange: (String?) -> Unit,
+    onPhotoClick: () -> Unit,
     onShowBirthdayScreen: () -> Unit,
+    onClearError: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
@@ -99,7 +186,7 @@ private fun DetailsScreenContent(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = if (isLandscape) 32.dp else 0.dp),
+                .padding(horizontal = if (isLandscape) 80.dp else 0.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -122,12 +209,12 @@ private fun DetailsScreenContent(
                 )
 
                 PhotoSection(
-                    hasPhoto = state.hasPhoto,
-                    onPhotoClick = {
-                        val newPath = if (state.hasPhoto) null else "dummy_path"
-                        onPhotoChange(newPath)
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                    photoPath = state.photoPath,
+                    isProcessing = imagePickerState.isProcessingImage,
+                    errorMessage = imagePickerState.errorMessage,
+                    onPhotoClick = onPhotoClick,
+                    onClearError = onClearError,
+                    modifier = Modifier.fillMaxWidth(),
                 )
 
                 ShowBirthdayButton(
@@ -302,9 +389,12 @@ private fun BirthdayInputField(
 
 @Composable
 private fun PhotoSection(
-    hasPhoto: Boolean,
+    photoPath: String?,
+    isProcessing: Boolean,
+    errorMessage: String?,
     onPhotoClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClearError: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape =
@@ -319,12 +409,12 @@ private fun PhotoSection(
         )
 
         Card(
-            onClick = onPhotoClick,
+            onClick = { if (!isProcessing) onPhotoClick() },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (isLandscape) 140.dp else 180.dp),
+                .height(if (isLandscape) 300.dp else 200.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (hasPhoto) {
+                containerColor = if (photoPath != null) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
@@ -336,72 +426,45 @@ private fun PhotoSection(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                if (hasPhoto) {
-                    PhotoSelectedContent()
+                if (isProcessing) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            strokeWidth = 3.dp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.processing_image),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else if (photoPath != null) {
+                    AsyncImageLoader(
+                        imagePath = photoPath,
+                        contentDescription = "Baby photo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 } else {
                     PhotoPlaceholderContent()
                 }
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = "Camera",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PhotoSelectedContent() {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Surface(
-            shape = RoundedCornerShape(32.dp),
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(64.dp)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Baby photo",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(32.dp)
-                )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = stringResource(R.string.photo_selected),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-        )
+        errorMessage?.let { error ->
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .padding(start = 16.dp, top = 4.dp)
+                    .clickable { onClearError() }
+            )
+        }
     }
 }
 
@@ -480,54 +543,18 @@ fun DetailsScreenPreview() {
         Surface {
             DetailsScreenContent(
                 state = DetailsScreenState(
-                    name = "Emma",
+                    name = "Slava",
                     birthday = LocalDate.of(2023, 6, 15),
                     photoPath = "mock_path",
                     isLoading = false,
                     isSaving = false
                 ),
+                imagePickerState = ImagePickerState(),
                 onNameChange = {},
                 onBirthdayChange = {},
-                onPhotoChange = {},
-                onShowBirthdayScreen = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Loading State")
-@Composable
-fun DetailsScreenLoadingPreview() {
-    BabyBirthdayAppTheme {
-        Surface {
-            DetailsScreenContent(
-                state = DetailsScreenState(
-                    name = "",
-                    birthday = null,
-                    photoPath = null,
-                    isLoading = true,
-                    isSaving = false
-                ),
-                onNameChange = {},
-                onBirthdayChange = {},
-                onPhotoChange = {},
-                onShowBirthdayScreen = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Empty State")
-@Composable
-fun DetailsScreenEmptyPreview() {
-    BabyBirthdayAppTheme {
-        Surface {
-            DetailsScreenContent(
-                state = DetailsScreenState(),
-                onNameChange = {},
-                onBirthdayChange = {},
-                onPhotoChange = {},
-                onShowBirthdayScreen = {}
+                onPhotoClick = {},
+                onShowBirthdayScreen = {},
+                onClearError = {}
             )
         }
     }
