@@ -1,6 +1,7 @@
 package com.vkolisnichenko.babybirthday.presentation.screen
 
 import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -71,6 +72,10 @@ fun BirthdayScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    BackHandler {
+        onCloseClick()
+    }
+
     BirthdayScreenContent(
         state = state,
         onCloseClick = onCloseClick,
@@ -102,7 +107,7 @@ private fun BirthdayScreenContent(
                 painter = painterResource(id = decorationRes),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.FillBounds
             )
         }
 
@@ -216,10 +221,23 @@ private fun BirthdayScreenLandscapeLayout(
             .padding(horizontal = 32.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .aspectRatio(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            BabyImageWithCamera(
+                photoPath = photoPath,
+                variant = variant,
+                onCameraClick = onCameraClick
+            )
+        }
+
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(end = 24.dp),
+                .padding(start = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -239,19 +257,6 @@ private fun BirthdayScreenLandscapeLayout(
             )
 
             NanitLogo()
-        }
-
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .aspectRatio(1f),
-            contentAlignment = Alignment.Center
-        ) {
-            BabyImageWithCamera(
-                photoPath = photoPath,
-                variant = variant,
-                onCameraClick = onCameraClick,
-            )
         }
     }
 }
