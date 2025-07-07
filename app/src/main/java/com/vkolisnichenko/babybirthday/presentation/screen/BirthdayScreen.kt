@@ -1,6 +1,7 @@
 package com.vkolisnichenko.babybirthday.presentation.screen
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.view.View
@@ -41,6 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,7 +95,20 @@ fun BirthdayScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val imagePickerState by viewModel.imagePickerState.collectAsStateWithLifecycle()
     val shareState by viewModel.shareState.collectAsStateWithLifecycle()
+    val shareIntent by viewModel.shareIntent.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    LaunchedEffect(shareIntent) {
+        shareIntent?.let { intent ->
+            try {
+                val chooserIntent = Intent.createChooser(intent, "Share Birthday")
+                context.startActivity(chooserIntent)
+            } catch (e: Exception) {
+            } finally {
+                viewModel.onShareIntentHandled()
+            }
+        }
+    }
 
     BackHandler {
         onCloseClick()
@@ -132,11 +147,25 @@ fun BirthdayScreen(
         shareState = shareState,
         onCloseClick = onCloseClick,
         onCameraClick = { showImageSourceDialog = true },
-        onShareClick = { view ->
-        },
+        onShareClick = { view -> viewModel.onShareClick(view) },
         modifier = modifier,
         isProcessing = imagePickerState.isProcessingImage
     )
+
+    shareState.errorMessage?.let { error ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearShareError() },
+            title = { Text(stringResource(R.string.share_error)) },
+            text = { Text(error) },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.clearShareError() }
+                ) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
+    }
 
     if (showImageSourceDialog) {
         AlertDialog(
@@ -235,7 +264,8 @@ private fun BirthdayScreenContent(
             variant = state.variant,
             onCameraClick = onCameraClick,
             statusBarHeight = statusBarHeight,
-            isProcessing = isProcessing
+            isProcessing = isProcessing,
+            hideUIForScreenshot = shareState.hideUIForScreenshot
         )
     }
 }
@@ -249,7 +279,8 @@ private fun BirthdayScreenLayout(
     variant: BirthdayScreenVariant,
     onCameraClick: () -> Unit,
     statusBarHeight: Dp,
-    isProcessing: Boolean
+    isProcessing: Boolean,
+    hideUIForScreenshot: Boolean = false
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -261,7 +292,8 @@ private fun BirthdayScreenLayout(
             photoPath = photoPath,
             variant = variant,
             onCameraClick = onCameraClick,
-            isProcessing = isProcessing
+            isProcessing = isProcessing,
+            hideUIForScreenshot = hideUIForScreenshot
         )
     } else {
         BirthdayScreenPortraitLayout(
@@ -271,7 +303,8 @@ private fun BirthdayScreenLayout(
             variant = variant,
             onCameraClick = onCameraClick,
             statusBarHeight = statusBarHeight,
-            isProcessing = isProcessing
+            isProcessing = isProcessing,
+            hideUIForScreenshot = hideUIForScreenshot
         )
     }
 }
@@ -331,7 +364,8 @@ private fun BirthdayScreenLandscapeLayout(
     photoPath: String,
     variant: BirthdayScreenVariant,
     onCameraClick: () -> Unit,
-    isProcessing: Boolean
+    isProcessing: Boolean,
+    hideUIForScreenshot: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -349,7 +383,8 @@ private fun BirthdayScreenLandscapeLayout(
                 photoPath = photoPath,
                 variant = variant,
                 onCameraClick = onCameraClick,
-                isProcessing = isProcessing
+                isProcessing = isProcessing,
+                hideUIForScreenshot = hideUIForScreenshot
             )
         }
 

@@ -45,6 +45,9 @@ class BirthdayScreenViewModel @Inject constructor(
     private val _state = MutableStateFlow(BirthdayScreenState())
     val state: StateFlow<BirthdayScreenState> = _state.asStateFlow()
 
+    private val _shareIntent = MutableStateFlow<Intent?>(null)
+    val shareIntent: StateFlow<Intent?> = _shareIntent.asStateFlow()
+
     private val _imagePickerState = MutableStateFlow(ImagePickerState())
     val imagePickerState: StateFlow<ImagePickerState> = _imagePickerState.asStateFlow()
 
@@ -127,53 +130,64 @@ class BirthdayScreenViewModel @Inject constructor(
         }
     }
 
-    fun clearImagePickerError() {
-        _imagePickerState.value = _imagePickerState.value.copy(errorMessage = null)
-    }
-
-    fun onShareClick(view: View): Intent? {
+    fun onShareClick(view: View) {
         viewModelScope.launch {
-            _shareState.value = _shareState.value.copy(
-                isSharing = true,
-                hideUIForScreenshot = true,
-                errorMessage = null
-            )
+            try {
+                _shareState.value = _shareState.value.copy(
+                    isSharing = true,
+                    hideUIForScreenshot = true,
+                    errorMessage = null
+                )
 
-            delay(100)
+                delay(200)
 
-            val screenshotResult = captureScreenshotUseCase(view)
+                val screenshotResult = captureScreenshotUseCase(view)
 
-            when (screenshotResult) {
-                is CaptureScreenshotUseCase.Result.Success -> {
-                    val saveResult = saveScreenshotUseCase(screenshotResult.bitmap)
+                when (screenshotResult) {
+                    is CaptureScreenshotUseCase.Result.Success -> {
+                        val saveResult = saveScreenshotUseCase(screenshotResult.bitmap)
 
-                    when (saveResult) {
-                        is SaveScreenshotUseCase.Result.Success -> {
-                            _shareState.value = _shareState.value.copy(
-                                isSharing = false,
-                                hideUIForScreenshot = false
-                            )
-                        }
-                        is SaveScreenshotUseCase.Result.Error -> {
-                            _shareState.value = _shareState.value.copy(
-                                isSharing = false,
-                                hideUIForScreenshot = false,
-                                errorMessage = saveResult.message
-                            )
+                        when (saveResult) {
+                            is SaveScreenshotUseCase.Result.Success -> {
+                                val shareIntent = createShareIntentUseCase(saveResult.uri)
+                                _shareIntent.value = shareIntent
+
+                                _shareState.value = _shareState.value.copy(
+                                    isSharing = false,
+                                    hideUIForScreenshot = false
+                                )
+                            }
+
+                            is SaveScreenshotUseCase.Result.Error -> {
+                                _shareState.value = _shareState.value.copy(
+                                    isSharing = false,
+                                    hideUIForScreenshot = false,
+                                    errorMessage = saveResult.message
+                                )
+                            }
                         }
                     }
+
+                    is CaptureScreenshotUseCase.Result.Error -> {
+                        _shareState.value = _shareState.value.copy(
+                            isSharing = false,
+                            hideUIForScreenshot = false,
+                            errorMessage = screenshotResult.message
+                        )
+                    }
                 }
-                is CaptureScreenshotUseCase.Result.Error -> {
-                    _shareState.value = _shareState.value.copy(
-                        isSharing = false,
-                        hideUIForScreenshot = false,
-                        errorMessage = screenshotResult.message
-                    )
-                }
+            } catch (e: Exception) {
+                _shareState.value = _shareState.value.copy(
+                    isSharing = false,
+                    hideUIForScreenshot = false,
+                    errorMessage = "Unexpected error: ${e.message}"
+                )
             }
         }
+    }
 
-        return null
+    fun onShareIntentHandled() {
+        _shareIntent.value = null
     }
 
     fun clearShareError() {
@@ -194,7 +208,8 @@ class BirthdayScreenViewModel @Inject constructor(
                     val updatedBabyInfo = babyInfo.copy(photoPath = photoPath)
                     saveBabyInfoUseCase(updatedBabyInfo)
                 }
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+            }
         }
     }
 }
