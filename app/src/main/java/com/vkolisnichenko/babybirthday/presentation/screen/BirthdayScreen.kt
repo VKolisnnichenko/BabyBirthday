@@ -627,9 +627,6 @@ private fun BabyImageCircle(
 
     if (photoPath.isNotEmpty()) {
         AsyncImageLoader(
-            imagePath = photoPath,
-            fallbackPainter = painterResource(getBabyImageResource(variant)),
-            contentDescription = stringResource(R.string.baby_photo),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(6.dp)
@@ -638,6 +635,9 @@ private fun BabyImageCircle(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) { onCameraClick() },
+            imagePath = photoPath,
+            fallbackPainter = painterResource(getBabyImageResource(variant)),
+            contentDescription = stringResource(R.string.baby_photo),
             contentScale = ContentScale.Crop,
             isCircular = true
         )

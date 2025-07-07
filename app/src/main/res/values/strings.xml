@@ -34,4 +34,8 @@
     <string name="baby">Baby %1$s</string>
     <string name="camera_name">Camera %1$s</string>
     <string name="share_error">Share error</string>
+    <string name="name_icon">Name icon</string>
+    <string name="calendar_icon">Calendar icon</string>
+    <string name="add_photo">Add photo</string>
+    <string name="error_loading_image">Error loading image</string>
 </resources>

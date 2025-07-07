@@ -304,7 +304,7 @@ private fun NameInputField(
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "Name icon",
+                    contentDescription = stringResource(R.string.name_icon),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -346,7 +346,7 @@ private fun BirthdayInputField(
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.DateRange,
-                        contentDescription = "Calendar icon",
+                        contentDescription = stringResource(R.string.calendar_icon),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
@@ -444,9 +444,9 @@ private fun PhotoSection(
                     }
                 } else if (photoPath != null) {
                     AsyncImageLoader(
-                        imagePath = photoPath,
-                        contentDescription = "Baby photo",
                         modifier = Modifier.fillMaxSize(),
+                        imagePath = photoPath,
+                        contentDescription = stringResource(R.string.baby_photo),
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -476,7 +476,7 @@ private fun PhotoPlaceholderContent() {
     ) {
         Icon(
             imageVector = Icons.Default.DateRange,
-            contentDescription = "Add photo",
+            contentDescription = stringResource(R.string.add_photo),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(32.dp)
         )

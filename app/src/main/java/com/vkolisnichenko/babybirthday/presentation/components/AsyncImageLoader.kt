@@ -25,8 +25,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.vkolisnichenko.babybirthday.R
 import com.vkolisnichenko.babybirthday.presentation.theme.BabyBirthdayAppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,10 +36,10 @@ import java.io.File
 
 @Composable
 fun AsyncImageLoader(
+    modifier: Modifier = Modifier,
     imagePath: String?,
     fallbackPainter: Painter? = null,
     contentDescription: String? = null,
-    modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     isCircular: Boolean = false
 ) {
@@ -184,7 +186,7 @@ private fun ErrorContent(
         ) {
             Icon(
                 imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Error loading image",
+                contentDescription = stringResource(R.string.error_loading_image),
                 tint = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.size(32.dp)
             )
@@ -197,8 +199,8 @@ private fun ErrorContent(
 fun AsyncImageLoaderPreview() {
     BabyBirthdayAppTheme {
         AsyncImageLoader(
-            imagePath = null,
             modifier = Modifier.size(100.dp),
+            imagePath = null,
             isCircular = true
         )
     }
